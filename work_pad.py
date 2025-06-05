@@ -186,6 +186,7 @@ class WorkpadApp:
             self.tasks.remove(task)
 
 
+
 if __name__ == "__main__":
     root = tk.Tk()
     app = WorkpadApp(root)
