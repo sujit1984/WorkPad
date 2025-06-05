@@ -1,134 +1,190 @@
 import tkinter as tk
 from tkinter import messagebox
 import tkinter.font as tkfont
+from datetime import datetime
+
 
 class WorkpadApp:
     def __init__(self, root):
         self.root = root
         self.root.title("Workpad App")
-        self.tasks_frame = tk.Frame(self.root)
-        self.tasks_frame.pack(pady=10)
 
-        self.task_entry = tk.Entry(self.root, width=40)
-        self.task_entry.pack(padx=10, pady=5)
-        self.task_entry.bind('<Return>', self.add_task)
+        # Main container
+        self.main_frame = tk.Frame(self.root)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-        self.buttons_frame = tk.Frame(self.root)
-        self.buttons_frame.pack(pady=5)
+        # ================== Goals Section ==================
+        goals_container = tk.LabelFrame(self.main_frame, text=" Goals ", font=("Arial", 12, "bold"))
+        goals_container.pack(fill=tk.X, pady=(0, 10))
 
-        self.add_button = tk.Button(self.buttons_frame, text="Add Task", command=self.add_task)
-        self.add_button.pack(side=tk.LEFT, padx=5)
+        # Goal entry
+        self.goal_entry = tk.Entry(goals_container, width=40)
+        self.goal_entry.pack(side=tk.LEFT, padx=5, pady=5)
+        self.goal_entry.bind('<Return>', lambda e: self.add_goal())
 
-        self.clear_button = tk.Button(self.buttons_frame, text="Clear Tasks", command=self.confirm_clear)
-        self.clear_button.pack(side=tk.LEFT, padx=5)
+        # Goal add button
+        self.goal_add_btn = tk.Button(goals_container, text="Add Goal", command=self.add_goal)
+        self.goal_add_btn.pack(side=tk.LEFT, padx=5)
 
-        self.remove_done_button = tk.Button(self.buttons_frame, text="Remove Done", command=self.remove_done_tasks)
-        self.remove_done_button.pack(side=tk.LEFT, padx=5)
+        # Goals display area
+        self.goals_frame = tk.Frame(self.main_frame)
+        self.goals_frame.pack(fill=tk.X)
+        self.goals = []
 
+        # ================== Tasks Section ==================
+        tasks_container = tk.LabelFrame(self.main_frame, text=" Daily Tasks ", font=("Arial", 12, "bold"))
+        tasks_container.pack(fill=tk.BOTH, expand=True)
+
+        # Date selection
+        self.date_frame = tk.Frame(tasks_container)
+        self.date_frame.pack(fill=tk.X, pady=5)
+
+        self.date_entry = tk.Entry(self.date_frame, width=15)
+        self.date_entry.pack(side=tk.LEFT, padx=5)
+        self.date_entry.insert(0, datetime.today().strftime('%Y-%m-%d'))
+
+        self.task_entry = tk.Entry(self.date_frame, width=40)
+        self.task_entry.pack(side=tk.LEFT, padx=5)
+        self.task_entry.bind('<Return>', lambda e: self.add_task())
+
+        # Task buttons
+        self.task_buttons_frame = tk.Frame(tasks_container)
+        self.task_buttons_frame.pack(fill=tk.X, pady=5)
+
+        self.add_btn = tk.Button(self.task_buttons_frame, text="Add Task", command=self.add_task)
+        self.add_btn.pack(side=tk.LEFT, padx=2)
+
+        self.clear_btn = tk.Button(self.task_buttons_frame, text="Clear Tasks", command=self.clear_tasks)
+        self.clear_btn.pack(side=tk.LEFT, padx=2)
+
+        self.remove_done_btn = tk.Button(self.task_buttons_frame, text="Remove Done", command=self.remove_done_tasks)
+        self.remove_done_btn.pack(side=tk.LEFT, padx=2)
+
+        # Tasks display
+        self.tasks_frame = tk.Frame(tasks_container)
+        self.tasks_frame.pack(fill=tk.BOTH, expand=True)
         self.tasks = []
-        self.default_font = tkfont.nametofont("TkDefaultFont")
 
+        # Font setup
+        self.default_font = tkfont.nametofont("TkDefaultFont")
+        self.strike_font = self.default_font.copy()
+        self.strike_font.configure(overstrike=1)
+
+    # ================== Goals Functions ==================
+    def add_goal(self):
+        goal_text = self.goal_entry.get().strip()
+        if goal_text:
+            goal_frame = tk.Frame(self.goals_frame, bd=1, relief=tk.GROOVE)
+            goal_frame.pack(fill=tk.X, pady=2, padx=5)
+
+            # Goal header
+            header_frame = tk.Frame(goal_frame)
+            header_frame.pack(fill=tk.X)
+
+            goal_label = tk.Label(header_frame, text=goal_text, font=("Arial", 10, "bold"))
+            goal_label.pack(side=tk.LEFT)
+
+            # Subgoal entry
+            sub_frame = tk.Frame(goal_frame)
+            sub_frame.pack(fill=tk.X, padx=10, pady=5)
+
+            sub_entry = tk.Entry(sub_frame, width=35)
+            sub_entry.pack(side=tk.LEFT)
+            sub_entry.bind('<Return>', lambda e, s=sub_entry, g=goal_frame: self.add_subgoal(g, s))
+
+            sub_btn = tk.Button(sub_frame, text="+ Subgoal",
+                                command=lambda s=sub_entry, g=goal_frame: self.add_subgoal(g, s))
+            sub_btn.pack(side=tk.LEFT, padx=5)
+
+            self.goals.append({
+                'frame': goal_frame,
+                'subgoals': []
+            })
+            self.goal_entry.delete(0, tk.END)
+
+    def add_subgoal(self, goal_frame, entry_widget):
+        sub_text = entry_widget.get().strip()
+        if sub_text:
+            sub_frame = tk.Frame(goal_frame)
+            sub_frame.pack(fill=tk.X, padx=15, pady=2)
+
+            var = tk.BooleanVar()
+            cb = tk.Checkbutton(sub_frame, variable=var,
+                                command=lambda v=var, f=sub_frame:
+                                self.toggle_subgoal(v, f))
+            cb.pack(side=tk.LEFT)
+
+            label = tk.Label(sub_frame, text=sub_text)
+            label.pack(side=tk.LEFT)
+
+            entry_widget.delete(0, tk.END)
+
+            self.goals[self.goals.index(next(g for g in self.goals if g['frame'] == goal_frame))] \
+                ['subgoals'].append({
+                'var': var,
+                'label': label,
+                'frame': sub_frame
+            })
+
+    def toggle_subgoal(self, var, frame):
+        label = frame.winfo_children()[1]
+        label.configure(font=self.strike_font if var.get() else self.default_font)
+
+    # ================== Tasks Functions ==================
     def add_task(self, event=None):
         task_text = self.task_entry.get().strip()
-        if task_text:
+        date_text = self.date_entry.get().strip()
+        if task_text and date_text:
             var = tk.BooleanVar()
-            strike_font = self.default_font.copy()
-            strike_font.configure(overstrike=1)
 
-            row = tk.Frame(self.tasks_frame)
-            serial_label = tk.Label(row, text=f"{len(self.tasks)+1}.", width=4, anchor='e', font=self.default_font)
-            serial_label.pack(side=tk.LEFT, padx=(0, 5))
+            task_frame = tk.Frame(self.tasks_frame)
+            task_frame.pack(fill=tk.X, pady=2)
 
-            label = tk.Label(row, text=task_text, font=self.default_font)
-            cb = tk.Checkbutton(
-                row,
-                variable=var,
-                command=lambda l=label, v=var, d=self.default_font, s=strike_font:
-                    self.toggle_strike(l, v, d, s)
-            )
+            # Checkbox
+            cb = tk.Checkbutton(task_frame, variable=var,
+                                command=lambda v=var, f=task_frame: self.toggle_task(v, f))
             cb.pack(side=tk.LEFT)
-            label.pack(side=tk.LEFT, padx=5)
-            row.pack(anchor='w', pady=2)
 
-            self.tasks.append({'var': var, 'label': label, 'row': row, 'cb': cb, 'serial_label': serial_label})
-            label.bind("<Double-Button-1>", lambda e, l=label: self.edit_task(l))
+            # Date label
+            date_label = tk.Label(task_frame, text=date_text, width=10, anchor='w')
+            date_label.pack(side=tk.LEFT)
+
+            # Task text
+            task_label = tk.Label(task_frame, text=task_text)
+            task_label.pack(side=tk.LEFT, padx=5)
+
+            # Edit button
+            edit_btn = tk.Button(task_frame, text="✎", command=lambda f=task_frame: self.edit_task(f))
+            edit_btn.pack(side=tk.RIGHT)
+
+            self.tasks.append({
+                'var': var,
+                'frame': task_frame,
+                'date': date_label,
+                'label': task_label
+            })
+
             self.task_entry.delete(0, tk.END)
-            self.update_task_numbers()
 
-    def toggle_strike(self, label, var, default_font, strike_font):
-        if var.get():
-            label.configure(font=strike_font)
-        else:
-            label.configure(font=default_font)
+    def toggle_task(self, var, frame):
+        label = frame.winfo_children()[2]
+        label.configure(font=self.strike_font if var.get() else self.default_font)
 
-    def confirm_clear(self):
-        if self.tasks:
-            response = messagebox.askyesno(
-                "Confirm Clear",
-                "Are you sure you want to delete all tasks?",
-                icon='warning'
-            )
-            if response:
-                self.clear_tasks()
+    def edit_task(self, frame):
+        # Placeholder for edit logic
+        pass
 
     def clear_tasks(self):
-        for widget in self.tasks_frame.winfo_children():
-            widget.destroy()
+        for task in self.tasks:
+            task['frame'].destroy()
         self.tasks.clear()
-        self.save_tasks()
-
-    def edit_task(self, label):
-        current_text = label.cget("text")
-        parent = label.master
-        label.pack_forget()
-        edit_entry = tk.Entry(parent, width=40)
-        edit_entry.insert(0, current_text)
-        edit_entry.pack(side=tk.LEFT, padx=5)
-        edit_entry.focus_set()
-
-        def save_edit(event=None):
-            new_text = edit_entry.get().strip()
-            if new_text:
-                label.config(text=new_text)
-                for task in self.tasks:
-                    if task['label'] == label:
-                        task['label'].config(text=new_text)
-                        break
-            edit_entry.destroy()
-            label.pack(side=tk.LEFT, padx=5)
-
-        edit_entry.bind('<Return>', save_edit)
-        edit_entry.bind('<FocusOut>', save_edit)
-
-    def update_task_numbers(self):
-        for idx, task in enumerate(self.tasks, 1):
-            task['serial_label'].config(text=f"{idx}.")
 
     def remove_done_tasks(self):
-        # Save all tasks (including done) before removing
-        self.save_tasks()
-        # Archive the done tasks before removing them
-        done_tasks = [task for task in self.tasks if task['var'].get()]
-        self.archive_tasks(done_tasks)
-        # Remove all checked (done) tasks from GUI and self.tasks
-        for task in done_tasks:
-            task['row'].destroy()
+        to_remove = [task for task in self.tasks if task['var'].get()]
+        for task in to_remove:
+            task['frame'].destroy()
             self.tasks.remove(task)
-        self.update_task_numbers()
-        messagebox.showinfo("Info", f"Removed {len(done_tasks)} completed task(s). All tasks were saved to tasks.txt and completed tasks archived.")
 
-    def save_tasks(self):
-        # Save all tasks (done and pending) to tasks.txt
-        with open("tasks.txt", "w", encoding="utf-8") as f:
-            for task in self.tasks:
-                status = "DONE" if task['var'].get() else "PENDING"
-                f.write(f"{task['label'].cget('text')} | {status}\n")
-
-    def archive_tasks(self, done_tasks):
-        # Append done tasks to an archive file
-        with open("tasks_archive.txt", "a", encoding="utf-8") as f:
-            for task in done_tasks:
-                f.write(f"{task['label'].cget('text')} | DONE\n")
 
 if __name__ == "__main__":
     root = tk.Tk()
