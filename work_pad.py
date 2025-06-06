@@ -2,7 +2,10 @@ import tkinter as tk
 from tkinter import messagebox
 import tkinter.font as tkfont
 from datetime import datetime
+import json
+import os
 
+DATA_FILE = "workpad_data.json"
 
 class WorkpadApp:
     def __init__(self, root):
@@ -41,7 +44,8 @@ class WorkpadApp:
 
         self.date_entry = tk.Entry(self.date_frame, width=15)
         self.date_entry.pack(side=tk.LEFT, padx=5)
-        self.date_entry.insert(0, datetime.today().strftime('%Y-%m-%d'))
+        self.last_date = datetime.today().strftime('%Y-%m-%d')
+        self.date_entry.insert(0, self.last_date)
 
         self.task_entry = tk.Entry(self.date_frame, width=40)
         self.task_entry.pack(side=tk.LEFT, padx=5)
@@ -69,6 +73,15 @@ class WorkpadApp:
         self.default_font = tkfont.nametofont("TkDefaultFont")
         self.strike_font = self.default_font.copy()
         self.strike_font.configure(overstrike=1)
+
+        # Start the dynamic date updater
+        self.update_date_periodically()
+
+        # Load data from file if exists
+        self.load_data()
+
+        # Save on close
+        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
 
     # ================== Goals Functions ==================
     def add_goal(self):
@@ -101,6 +114,7 @@ class WorkpadApp:
                 'subgoals': []
             })
             self.goal_entry.delete(0, tk.END)
+            self.save_data()
 
     def add_subgoal(self, goal_frame, entry_widget):
         sub_text = entry_widget.get().strip()
@@ -125,10 +139,12 @@ class WorkpadApp:
                 'label': label,
                 'frame': sub_frame
             })
+            self.save_data()
 
     def toggle_subgoal(self, var, frame):
         label = frame.winfo_children()[1]
         label.configure(font=self.strike_font if var.get() else self.default_font)
+        self.save_data()
 
     # ================== Tasks Functions ==================
     def add_task(self, event=None):
@@ -165,10 +181,12 @@ class WorkpadApp:
             })
 
             self.task_entry.delete(0, tk.END)
+            self.save_data()
 
     def toggle_task(self, var, frame):
         label = frame.winfo_children()[2]
         label.configure(font=self.strike_font if var.get() else self.default_font)
+        self.save_data()
 
     def edit_task(self, frame):
         # Placeholder for edit logic
@@ -178,14 +196,93 @@ class WorkpadApp:
         for task in self.tasks:
             task['frame'].destroy()
         self.tasks.clear()
+        self.save_data()
 
     def remove_done_tasks(self):
         to_remove = [task for task in self.tasks if task['var'].get()]
         for task in to_remove:
             task['frame'].destroy()
             self.tasks.remove(task)
+        self.save_data()
 
+    # ================== Persistent Storage ==================
+    def save_data(self):
+        data = {
+            "goals": [],
+            "tasks": []
+        }
+        # Save goals and subgoals
+        for goal in self.goals:
+            goal_frame = goal['frame']
+            header = goal_frame.winfo_children()[0]
+            goal_label = header.winfo_children()[0]
+            goal_text = goal_label.cget("text")
+            subgoals = []
+            for sub in goal['subgoals']:
+                subgoals.append({
+                    "text": sub['label'].cget("text"),
+                    "done": sub['var'].get()
+                })
+            data["goals"].append({
+                "text": goal_text,
+                "subgoals": subgoals
+            })
+        # Save tasks
+        for task in self.tasks:
+            data["tasks"].append({
+                "text": task['label'].cget("text"),
+                "date": task['date'].cget("text"),
+                "done": task['var'].get()
+            })
+        with open(DATA_FILE, "w", encoding="utf-8") as f:
+            json.dump(data, f, indent=2)
 
+    def load_data(self):
+        if not os.path.exists(DATA_FILE):
+            return
+        with open(DATA_FILE, "r", encoding="utf-8") as f:
+            data = json.load(f)
+        # Load goals
+        for goal_data in data.get("goals", []):
+            self.goal_entry.delete(0, tk.END)
+            self.goal_entry.insert(0, goal_data["text"])
+            self.add_goal()
+            goal = self.goals[-1]
+            for subgoal in goal_data.get("subgoals", []):
+                sub_entry = goal['frame'].winfo_children()[1].winfo_children()[0]
+                sub_entry.delete(0, tk.END)
+                sub_entry.insert(0, subgoal["text"])
+                self.add_subgoal(goal['frame'], sub_entry)
+                sub = goal['subgoals'][-1]
+                if subgoal.get("done"):
+                    sub['var'].set(True)
+                    self.toggle_subgoal(sub['var'], sub['frame'])
+        # Load tasks
+        for task_data in data.get("tasks", []):
+            self.date_entry.delete(0, tk.END)
+            self.date_entry.insert(0, task_data["date"])
+            self.task_entry.delete(0, tk.END)
+            self.task_entry.insert(0, task_data["text"])
+            self.add_task()
+            task = self.tasks[-1]
+            if task_data.get("done"):
+                task['var'].set(True)
+                self.toggle_task(task['var'], task['frame'])
+
+    def on_close(self):
+        self.save_data()
+        self.root.destroy()
+
+    # ================== Dynamic Date Updater ==================
+    def update_date_periodically(self):
+        """Check and update the date entry every 2 hours."""
+        current_date = datetime.today().strftime('%Y-%m-%d')
+        if self.last_date != current_date:
+            self.last_date = current_date
+            self.date_entry.delete(0, tk.END)
+            self.date_entry.insert(0, current_date)
+        # Schedule to run again after 2 hours (7200000 ms)
+        self.root.after(7200000, self.update_date_periodically)
 
 if __name__ == "__main__":
     root = tk.Tk()
