@@ -1,0 +1,82 @@
+{
+  "tasks": [
+    {
+      "text": "Drink 1 litre of water before lunch",
+      "done": false
+    },
+    {
+      "text": "Attend daily stand up",
+      "done": true
+    },
+    {
+      "text": "Assign tasks to Saurabh",
+      "done": true
+    },
+    {
+      "text": "Create the app for tasks",
+      "done": false
+    },
+    {
+      "text": "Upload the tasks code to github",
+      "done": false
+    }
+  ],
+  "goals": {
+    "goals": [
+      {
+        "text": "Get into Google",
+        "done": false,
+        "subgoals": [
+          {
+            "text": "get better at DSA",
+            "done": false
+          }
+        ]
+      },
+      {
+        "text": "Move to Europe",
+        "done": false,
+        "subgoals": [
+          {
+            "text": "Learn german",
+            "done": false
+          },
+          {
+            "text": "get istqb certified",
+            "done": false
+          },
+          {
+            "text": "get ccna certified",
+            "done": false
+          }
+        ]
+      }
+    ],
+    "monthly": [
+      {
+        "text": "Complete prerequisites course in KodeKloud",
+        "done": false
+      }
+    ],
+    "weekly": [
+      {
+        "text": "Lose 1 kg weight by 14/06",
+        "done": false
+      }
+    ],
+    "daily": [
+      {
+        "text": "Complete the github actions session from YouTube",
+        "done": false
+      },
+      {
+        "text": "Perform the setup from the youtube session on Github actions",
+        "done": false
+      },
+      {
+        "text": "Complete 1 class on network automation",
+        "done": false
+      }
+    ]
+  }
+}

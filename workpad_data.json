@@ -1,0 +1,91 @@
+{
+  "goals": [
+    {
+      "text": "Join google",
+      "subgoals": [
+        {
+          "text": "Get AWS solution architect associate certified",
+          "done": false
+        }
+      ]
+    },
+    {
+      "text": "get work in the european union",
+      "subgoals": [
+        {
+          "text": "learn german",
+          "done": false
+        },
+        {
+          "text": "get istqb certified",
+          "done": false
+        },
+        {
+          "text": "Get CCNA certified",
+          "done": false
+        },
+        {
+          "text": "Create a automation framework with playwright and TS",
+          "done": false
+        }
+      ]
+    },
+    {
+      "text": "Lose 8 kilos before Oct 23,2025",
+      "subgoals": [
+        {
+          "text": "Lose 2 kilos before June 30",
+          "done": false
+        },
+        {
+          "text": "lose 2 kilos before July 31",
+          "done": false
+        },
+        {
+          "text": "Lose 2 kilos before Aug 31",
+          "done": false
+        },
+        {
+          "text": "Lose 2 kilos before Sept 30",
+          "done": false
+        },
+        {
+          "text": "Lose 1 kilo before Oct 20",
+          "done": false
+        }
+      ]
+    }
+  ],
+  "tasks": [
+    {
+      "text": "Update the workpad app to save the goals and open tasks",
+      "date": "2025-06-06",
+      "done": true
+    },
+    {
+      "text": "Create an app of the current code of workpad",
+      "date": "2025-06-06",
+      "done": false
+    },
+    {
+      "text": "update two tickets from open to feedback provided",
+      "date": "2025-06-06",
+      "done": false
+    },
+    {
+      "text": "attend 2 sessions on kodekloud",
+      "date": "2025-06-06",
+      "done": false
+    },
+    {
+      "text": "drink total 5 bottles of water",
+      "date": "2025-06-06",
+      "done": false
+    },
+    {
+      "text": "reduce calorie intake to less than 1800",
+      "date": "2025-06-06",
+      "done": false
+    }
+  ]
+}

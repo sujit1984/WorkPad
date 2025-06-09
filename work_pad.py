@@ -1,290 +1,393 @@
 import tkinter as tk
-from tkinter import messagebox
-import tkinter.font as tkfont
-from datetime import datetime
 import json
 import os
 
-DATA_FILE = "workpad_data.json"
+DATA_FILE = "task_goals_data.json"
 
-class WorkpadApp:
-    def __init__(self, root):
-        self.root = root
-        self.root.title("Workpad App")
 
-        # Main container
-        self.main_frame = tk.Frame(self.root)
-        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
-
-        # ================== Goals Section ==================
-        goals_container = tk.LabelFrame(self.main_frame, text=" Goals ", font=("Arial", 12, "bold"))
-        goals_container.pack(fill=tk.X, pady=(0, 10))
-
-        # Goal entry
-        self.goal_entry = tk.Entry(goals_container, width=40)
-        self.goal_entry.pack(side=tk.LEFT, padx=5, pady=5)
-        self.goal_entry.bind('<Return>', lambda e: self.add_goal())
-
-        # Goal add button
-        self.goal_add_btn = tk.Button(goals_container, text="Add Goal", command=self.add_goal)
-        self.goal_add_btn.pack(side=tk.LEFT, padx=5)
-
-        # Goals display area
-        self.goals_frame = tk.Frame(self.main_frame)
-        self.goals_frame.pack(fill=tk.X)
-        self.goals = []
-
-        # ================== Tasks Section ==================
-        tasks_container = tk.LabelFrame(self.main_frame, text=" Daily Tasks ", font=("Arial", 12, "bold"))
-        tasks_container.pack(fill=tk.BOTH, expand=True)
-
-        # Date selection
-        self.date_frame = tk.Frame(tasks_container)
-        self.date_frame.pack(fill=tk.X, pady=5)
-
-        self.date_entry = tk.Entry(self.date_frame, width=15)
-        self.date_entry.pack(side=tk.LEFT, padx=5)
-        self.last_date = datetime.today().strftime('%Y-%m-%d')
-        self.date_entry.insert(0, self.last_date)
-
-        self.task_entry = tk.Entry(self.date_frame, width=40)
-        self.task_entry.pack(side=tk.LEFT, padx=5)
-        self.task_entry.bind('<Return>', lambda e: self.add_task())
-
-        # Task buttons
-        self.task_buttons_frame = tk.Frame(tasks_container)
-        self.task_buttons_frame.pack(fill=tk.X, pady=5)
-
-        self.add_btn = tk.Button(self.task_buttons_frame, text="Add Task", command=self.add_task)
+# ---------------------------
+# 1. SubGoalSection (unchanged)
+# ---------------------------
+class SubGoalSection(tk.Frame):
+    def __init__(self, master, subgoals, save_callback, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        self.save_callback = save_callback
+        self.subgoal_vars = []
+        self.subgoal_frames = []
+        self.subgoals_frame = tk.Frame(self)
+        self.subgoals_frame.pack(fill=tk.BOTH, expand=True)
+        self.entry_frame = tk.Frame(self)
+        self.entry = tk.Entry(self.entry_frame)
+        self.entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.entry.bind("<Return>", lambda event: self.add_subgoal())
+        self.add_btn = tk.Button(self.entry_frame, text="Add Sub-goal", command=self.add_subgoal)
         self.add_btn.pack(side=tk.LEFT, padx=2)
+        self.entry_frame.pack(fill=tk.X, pady=3)
+        for sg in subgoals:
+            self.add_subgoal(sg['text'], sg['done'])
 
-        self.clear_btn = tk.Button(self.task_buttons_frame, text="Clear Tasks", command=self.clear_tasks)
-        self.clear_btn.pack(side=tk.LEFT, padx=2)
+    def add_subgoal(self, text=None, checked=False):
+        if text is None:
+            text = self.entry.get().strip()
+        if not text:
+            return
+        var = tk.BooleanVar(value=checked)
+        frame = tk.Frame(self.subgoals_frame)
+        cb = tk.Checkbutton(frame, variable=var, command=self.save_callback)
+        cb.pack(side=tk.LEFT)
+        lbl = tk.Label(frame, text=text)
+        lbl.pack(side=tk.LEFT)
+        frame.pack(anchor='w', pady=1)
+        self.subgoal_vars.append(var)
+        self.subgoal_frames.append(frame)
+        self.entry.delete(0, tk.END)
+        self.save_callback()
 
-        self.remove_done_btn = tk.Button(self.task_buttons_frame, text="Remove Done", command=self.remove_done_tasks)
-        self.remove_done_btn.pack(side=tk.LEFT, padx=2)
+    def get_subgoals(self):
+        return [{
+            'text': frame.winfo_children()[1].cget("text"),
+            'done': var.get()
+        } for var, frame in zip(self.subgoal_vars, self.subgoal_frames)]
 
-        # Tasks display
-        self.tasks_frame = tk.Frame(tasks_container)
+
+# ---------------------------
+# 2. GoalSection (unchanged)
+# ---------------------------
+class GoalSection(tk.Frame):
+    def __init__(self, master, title, save_callback, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        self.title = title
+        self.save_callback = save_callback
+        self.visible = tk.BooleanVar(value=True)
+        self.goal_vars = []
+        self.goal_frames = []
+        self.subgoal_sections = []
+
+        self.header = tk.Frame(self)
+        self.toggle_btn = tk.Button(self.header, text="▼", width=2, command=self.toggle)
+        self.toggle_btn.pack(side=tk.LEFT)
+        self.title_lbl = tk.Label(self.header, text=title, font=("Arial", 10, "bold"))
+        self.title_lbl.pack(side=tk.LEFT, padx=5)
+        self.header.pack(fill=tk.X)
+
+        self.body = tk.Frame(self)
+        self.body.pack(fill=tk.BOTH, expand=True)
+
+        self.entry_frame = tk.Frame(self.body)
+        self.entry = tk.Entry(self.entry_frame)
+        self.entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.entry.bind("<Return>", lambda event: self.add_goal())
+        self.add_btn = tk.Button(self.entry_frame, text="Add Goal", command=self.add_goal)
+        self.add_btn.pack(side=tk.LEFT, padx=2)
+        self.entry_frame.pack(fill=tk.X, pady=3)
+
+        self.goals_frame = tk.Frame(self.body)
+        self.goals_frame.pack(fill=tk.BOTH, expand=True)
+
+    def toggle(self):
+        if self.visible.get():
+            self.body.pack_forget()
+            self.toggle_btn.configure(text="►")
+        else:
+            self.body.pack(fill=tk.BOTH, expand=True)
+            self.toggle_btn.configure(text="▼")
+        self.visible.set(not self.visible.get())
+
+    def add_goal(self, text=None, checked=False, subgoals=None):
+        if text is None:
+            text = self.entry.get().strip()
+        if not text:
+            return
+        var = tk.BooleanVar(value=checked)
+        frame = tk.Frame(self.goals_frame, relief=tk.RAISED, bd=1)
+        cb = tk.Checkbutton(frame, variable=var, command=self.save_callback)
+        cb.pack(side=tk.LEFT)
+        lbl = tk.Label(frame, text=text, font=("Arial", 10))
+        lbl.pack(side=tk.LEFT)
+        frame.pack(anchor='w', pady=2, fill=tk.X)
+        self.goal_vars.append(var)
+        self.goal_frames.append(frame)
+
+        subgoal_section = SubGoalSection(frame, subgoals if subgoals else [], self.save_callback)
+        subgoal_section.pack(fill=tk.X, padx=30, pady=2)
+        self.subgoal_sections.append(subgoal_section)
+        self.entry.delete(0, tk.END)
+        self.save_callback()
+
+    def load_goals(self, goals):
+        for goal in goals:
+            self.add_goal(goal['text'], goal['done'], goal.get('subgoals', []))
+
+    def get_goals(self):
+        return [{
+            'text': frame.winfo_children()[1].cget("text"),
+            'done': var.get(),
+            'subgoals': sub_section.get_subgoals()
+        } for var, frame, sub_section in zip(self.goal_vars, self.goal_frames, self.subgoal_sections)]
+
+
+# ---------------------------
+# 3. CollapsibleSection (unchanged)
+# ---------------------------
+class CollapsibleSection(tk.Frame):
+    def __init__(self, master, title, items=None, save_callback=None, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        self.title = title
+        self.items = items if items else []
+        self.save_callback = save_callback
+        self.visible = tk.BooleanVar(value=True)
+        self.check_vars = []
+        self.item_frames = []
+
+        self.header = tk.Frame(self)
+        self.toggle_btn = tk.Button(self.header, text="▼", width=2, command=self.toggle)
+        self.toggle_btn.pack(side=tk.LEFT)
+        self.title_lbl = tk.Label(self.header, text=title, font=("Arial", 10, "bold"))
+        self.title_lbl.pack(side=tk.LEFT, padx=5)
+        self.header.pack(fill=tk.X)
+
+        self.body = tk.Frame(self)
+        self.body.pack(fill=tk.BOTH, expand=True)
+
+        self.entry_frame = tk.Frame(self.body)
+        self.entry = tk.Entry(self.entry_frame)
+        self.entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
+        self.entry.bind("<Return>", lambda event: self.add_item())
+        self.add_btn = tk.Button(self.entry_frame, text="Add", command=self.add_item)
+        self.add_btn.pack(side=tk.LEFT, padx=2)
+        self.entry_frame.pack(fill=tk.X, pady=3)
+
+        self.items_frame = tk.Frame(self.body)
+        self.items_frame.pack(fill=tk.BOTH, expand=True)
+
+        self.load_items(self.items)
+
+    def toggle(self):
+        if self.visible.get():
+            self.body.pack_forget()
+            self.toggle_btn.configure(text="►")
+        else:
+            self.body.pack(fill=tk.BOTH, expand=True)
+            self.toggle_btn.configure(text="▼")
+        self.visible.set(not self.visible.get())
+
+    def add_item(self, text=None, checked=False):
+        if text is None:
+            text = self.entry.get().strip()
+        if not text:
+            return
+        var = tk.BooleanVar(value=checked)
+        frame = tk.Frame(self.items_frame)
+        cb = tk.Checkbutton(frame, variable=var, command=self.save_callback)
+        cb.pack(side=tk.LEFT)
+        lbl = tk.Label(frame, text=text)
+        lbl.pack(side=tk.LEFT)
+        frame.pack(anchor='w', pady=1)
+        self.check_vars.append(var)
+        self.item_frames.append(frame)
+        self.entry.delete(0, tk.END)
+        if self.save_callback:
+            self.save_callback()
+
+    def load_items(self, items):
+        for item in items:
+            self.add_item(item['text'], item['done'])
+
+    def get_items(self):
+        return [{
+            'text': frame.winfo_children()[1].cget("text"),
+            'done': var.get()
+        } for var, frame in zip(self.check_vars, self.item_frames)]
+
+
+# ---------------------------
+# 4. Fixed GoalsWindow
+# ---------------------------
+class GoalsWindow(tk.Toplevel):
+    def __init__(self, master, data, save_callback, *args, **kwargs):
+        super().__init__(master, *args, **kwargs)
+        self.title("Goals")
+        self.geometry("500x650")
+        self.sections = {}
+        self.save_callback = save_callback
+
+        # Ensure complete data structure
+        data = data or {}
+        required_keys = ['goals', 'monthly', 'weekly', 'daily']
+        for key in required_keys:
+            if key not in data:
+                data[key] = []
+
+        # Initialize all sections first
+        self.sections = {
+            'goals': GoalSection(self, "Goals", self.save_all),
+            'monthly': CollapsibleSection(self, "Monthly Goals", data['monthly'], self.save_all),
+            'weekly': CollapsibleSection(self, "Weekly Goals", data['weekly'], self.save_all),
+            'daily': CollapsibleSection(self, "Daily Goals", data['daily'], self.save_all)
+        }
+
+        # Pack all sections
+        for section in self.sections.values():
+            section.pack(fill=tk.X, pady=3, padx=5)
+
+        # Load goals data after initialization
+        self.sections['goals'].load_goals(data['goals'])
+
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
+
+    def get_all_data(self):
+        return {
+            'goals': self.sections['goals'].get_goals(),
+            'monthly': self.sections['monthly'].get_items(),
+            'weekly': self.sections['weekly'].get_items(),
+            'daily': self.sections['daily'].get_items()
+        }
+
+    def save_all(self):
+        all_data = {
+            'tasks': self.master.task_manager.get_tasks(),
+            'goals': self.get_all_data()
+        }
+        with open(DATA_FILE, "w") as f:
+            json.dump(all_data, f, indent=2)
+        self.save_callback()
+
+    def on_close(self):
+        self.save_all()
+        self.destroy()
+
+
+# ---------------------------
+# 5. TaskManager (unchanged)
+# ---------------------------
+class TaskManager(tk.Frame):
+    def __init__(self, master, tasks, save_callback):
+        super().__init__(master)
+        self.save_callback = save_callback
+        self.task_vars = []
+        self.task_frames = []
+
+        self.task_entry = tk.Entry(self)
+        self.task_entry.pack(fill=tk.X, pady=5)
+        self.task_entry.bind("<Return>", lambda event: self.add_task())
+
+        self.add_btn = tk.Button(self, text="Add Task", command=self.add_task)
+        self.add_btn.pack(pady=5)
+
+        self.tasks_frame = tk.Frame(self)
         self.tasks_frame.pack(fill=tk.BOTH, expand=True)
-        self.tasks = []
 
-        # Font setup
-        self.default_font = tkfont.nametofont("TkDefaultFont")
-        self.strike_font = self.default_font.copy()
-        self.strike_font.configure(overstrike=1)
+        for task in tasks:
+            self.add_task(task['text'], task['done'])
 
-        # Start the dynamic date updater
-        self.update_date_periodically()
+    def add_task(self, text=None, checked=False):
+        if text is None:
+            text = self.task_entry.get().strip()
+        if not text:
+            return
+        var = tk.BooleanVar(value=checked)
+        frame = tk.Frame(self.tasks_frame)
+        cb = tk.Checkbutton(frame, variable=var, command=self.save_callback)
+        cb.pack(side=tk.LEFT)
+        lbl = tk.Label(frame, text=text)
+        lbl.pack(side=tk.LEFT)
+        frame.pack(anchor='w', pady=1)
+        self.task_vars.append(var)
+        self.task_frames.append(frame)
+        self.task_entry.delete(0, tk.END)
 
-        # Load data from file if exists
+    def get_tasks(self):
+        return [{
+            'text': frame.winfo_children()[1].cget("text"),
+            'done': var.get()
+        } for var, frame in zip(self.task_vars, self.task_frames)]
+
+
+# ---------------------------
+# 6. Fixed MainApp
+# ---------------------------
+class MainApp(tk.Tk):
+    def __init__(self):
+        super().__init__()
+        self.title("Task & Goals Manager")
+        self.geometry("500x400")
         self.load_data()
 
-        # Save on close
-        self.root.protocol("WM_DELETE_WINDOW", self.on_close)
+        self.main_frame = tk.Frame(self)
+        self.main_frame.pack(fill=tk.BOTH, expand=True, padx=10, pady=10)
 
-    # ================== Goals Functions ==================
-    def add_goal(self):
-        goal_text = self.goal_entry.get().strip()
-        if goal_text:
-            goal_frame = tk.Frame(self.goals_frame, bd=1, relief=tk.GROOVE)
-            goal_frame.pack(fill=tk.X, pady=2, padx=5)
+        self.task_manager = TaskManager(self.main_frame, self.data['tasks'], self.save_data)
+        self.task_manager.pack(fill=tk.BOTH, expand=True)
 
-            # Goal header
-            header_frame = tk.Frame(goal_frame)
-            header_frame.pack(fill=tk.X)
+        self.goals_btn = tk.Button(self.main_frame, text="Manage Goals", command=self.open_goals_window)
+        self.goals_btn.pack(pady=10)
 
-            goal_label = tk.Label(header_frame, text=goal_text, font=("Arial", 10, "bold"))
-            goal_label.pack(side=tk.LEFT)
-
-            # Subgoal entry
-            sub_frame = tk.Frame(goal_frame)
-            sub_frame.pack(fill=tk.X, padx=10, pady=5)
-
-            sub_entry = tk.Entry(sub_frame, width=35)
-            sub_entry.pack(side=tk.LEFT)
-            sub_entry.bind('<Return>', lambda e, s=sub_entry, g=goal_frame: self.add_subgoal(g, s))
-
-            sub_btn = tk.Button(sub_frame, text="+ Subgoal",
-                                command=lambda s=sub_entry, g=goal_frame: self.add_subgoal(g, s))
-            sub_btn.pack(side=tk.LEFT, padx=5)
-
-            self.goals.append({
-                'frame': goal_frame,
-                'subgoals': []
-            })
-            self.goal_entry.delete(0, tk.END)
-            self.save_data()
-
-    def add_subgoal(self, goal_frame, entry_widget):
-        sub_text = entry_widget.get().strip()
-        if sub_text:
-            sub_frame = tk.Frame(goal_frame)
-            sub_frame.pack(fill=tk.X, padx=15, pady=2)
-
-            var = tk.BooleanVar()
-            cb = tk.Checkbutton(sub_frame, variable=var,
-                                command=lambda v=var, f=sub_frame:
-                                self.toggle_subgoal(v, f))
-            cb.pack(side=tk.LEFT)
-
-            label = tk.Label(sub_frame, text=sub_text)
-            label.pack(side=tk.LEFT)
-
-            entry_widget.delete(0, tk.END)
-
-            self.goals[self.goals.index(next(g for g in self.goals if g['frame'] == goal_frame))] \
-                ['subgoals'].append({
-                'var': var,
-                'label': label,
-                'frame': sub_frame
-            })
-            self.save_data()
-
-    def toggle_subgoal(self, var, frame):
-        label = frame.winfo_children()[1]
-        label.configure(font=self.strike_font if var.get() else self.default_font)
-        self.save_data()
-
-    # ================== Tasks Functions ==================
-    def add_task(self, event=None):
-        task_text = self.task_entry.get().strip()
-        date_text = self.date_entry.get().strip()
-        if task_text and date_text:
-            var = tk.BooleanVar()
-
-            task_frame = tk.Frame(self.tasks_frame)
-            task_frame.pack(fill=tk.X, pady=2)
-
-            # Checkbox
-            cb = tk.Checkbutton(task_frame, variable=var,
-                                command=lambda v=var, f=task_frame: self.toggle_task(v, f))
-            cb.pack(side=tk.LEFT)
-
-            # Date label
-            date_label = tk.Label(task_frame, text=date_text, width=10, anchor='w')
-            date_label.pack(side=tk.LEFT)
-
-            # Task text
-            task_label = tk.Label(task_frame, text=task_text)
-            task_label.pack(side=tk.LEFT, padx=5)
-
-            # Edit button
-            edit_btn = tk.Button(task_frame, text="✎", command=lambda f=task_frame: self.edit_task(f))
-            edit_btn.pack(side=tk.RIGHT)
-
-            self.tasks.append({
-                'var': var,
-                'frame': task_frame,
-                'date': date_label,
-                'label': task_label
-            })
-
-            self.task_entry.delete(0, tk.END)
-            self.save_data()
-
-    def toggle_task(self, var, frame):
-        label = frame.winfo_children()[2]
-        label.configure(font=self.strike_font if var.get() else self.default_font)
-        self.save_data()
-
-    def edit_task(self, frame):
-        # Placeholder for edit logic
-        pass
-
-    def clear_tasks(self):
-        for task in self.tasks:
-            task['frame'].destroy()
-        self.tasks.clear()
-        self.save_data()
-
-    def remove_done_tasks(self):
-        to_remove = [task for task in self.tasks if task['var'].get()]
-        for task in to_remove:
-            task['frame'].destroy()
-            self.tasks.remove(task)
-        self.save_data()
-
-    # ================== Persistent Storage ==================
-    def save_data(self):
-        data = {
-            "goals": [],
-            "tasks": []
-        }
-        # Save goals and subgoals
-        for goal in self.goals:
-            goal_frame = goal['frame']
-            header = goal_frame.winfo_children()[0]
-            goal_label = header.winfo_children()[0]
-            goal_text = goal_label.cget("text")
-            subgoals = []
-            for sub in goal['subgoals']:
-                subgoals.append({
-                    "text": sub['label'].cget("text"),
-                    "done": sub['var'].get()
-                })
-            data["goals"].append({
-                "text": goal_text,
-                "subgoals": subgoals
-            })
-        # Save tasks
-        for task in self.tasks:
-            data["tasks"].append({
-                "text": task['label'].cget("text"),
-                "date": task['date'].cget("text"),
-                "done": task['var'].get()
-            })
-        with open(DATA_FILE, "w", encoding="utf-8") as f:
-            json.dump(data, f, indent=2)
+        self.protocol("WM_DELETE_WINDOW", self.on_close)
 
     def load_data(self):
-        if not os.path.exists(DATA_FILE):
-            return
-        with open(DATA_FILE, "r", encoding="utf-8") as f:
-            data = json.load(f)
-        # Load goals
-        for goal_data in data.get("goals", []):
-            self.goal_entry.delete(0, tk.END)
-            self.goal_entry.insert(0, goal_data["text"])
-            self.add_goal()
-            goal = self.goals[-1]
-            for subgoal in goal_data.get("subgoals", []):
-                sub_entry = goal['frame'].winfo_children()[1].winfo_children()[0]
-                sub_entry.delete(0, tk.END)
-                sub_entry.insert(0, subgoal["text"])
-                self.add_subgoal(goal['frame'], sub_entry)
-                sub = goal['subgoals'][-1]
-                if subgoal.get("done"):
-                    sub['var'].set(True)
-                    self.toggle_subgoal(sub['var'], sub['frame'])
-        # Load tasks
-        for task_data in data.get("tasks", []):
-            self.date_entry.delete(0, tk.END)
-            self.date_entry.insert(0, task_data["date"])
-            self.task_entry.delete(0, tk.END)
-            self.task_entry.insert(0, task_data["text"])
-            self.add_task()
-            task = self.tasks[-1]
-            if task_data.get("done"):
-                task['var'].set(True)
-                self.toggle_task(task['var'], task['frame'])
+        # Initialize with complete structure
+        self.data = {
+            'tasks': [],
+            'goals': {
+                'goals': [],
+                'monthly': [],
+                'weekly': [],
+                'daily': []
+            }
+        }
+
+        if os.path.exists(DATA_FILE):
+            try:
+                with open(DATA_FILE, "r") as f:
+                    loaded_data = json.load(f)
+
+                    # Migrate old data format
+                    if isinstance(loaded_data.get('goals', {}), list):
+                        self.data = {
+                            'tasks': loaded_data.get('tasks', []),
+                            'goals': {
+                                'goals': loaded_data.get('goals', []),
+                                'monthly': [],
+                                'weekly': [],
+                                'daily': []
+                            }
+                        }
+                    else:
+                        # Merge loaded data with default structure
+                        for key in ['tasks', 'goals']:
+                            if key in loaded_data:
+                                self.data[key] = loaded_data[key]
+
+                        # Ensure all goal sections exist
+                        for section in ['goals', 'monthly', 'weekly', 'daily']:
+                            if section not in self.data['goals']:
+                                self.data['goals'][section] = []
+
+            except Exception as e:
+                print(f"Error loading data: {e}")
+
+    def save_data(self):
+        data = {
+            'tasks': self.task_manager.get_tasks(),
+            'goals': self.data['goals']
+        }
+        with open(DATA_FILE, "w") as f:
+            json.dump(data, f, indent=2)
+
+    def open_goals_window(self):
+        GoalsWindow(self, self.data['goals'], self.update_goals_data)
+
+    def update_goals_data(self):
+        if os.path.exists(DATA_FILE):
+            with open(DATA_FILE, "r") as f:
+                self.data = json.load(f)
 
     def on_close(self):
         self.save_data()
-        self.root.destroy()
+        self.destroy()
 
-    # ================== Dynamic Date Updater ==================
-    def update_date_periodically(self):
-        """Check and update the date entry every 2 hours."""
-        current_date = datetime.today().strftime('%Y-%m-%d')
-        if self.last_date != current_date:
-            self.last_date = current_date
-            self.date_entry.delete(0, tk.END)
-            self.date_entry.insert(0, current_date)
-        # Schedule to run again after 2 hours (7200000 ms)
-        self.root.after(7200000, self.update_date_periodically)
+
 
 if __name__ == "__main__":
-    root = tk.Tk()
-    app = WorkpadApp(root)
-    root.mainloop()
+    app = MainApp()
+    app.mainloop()
