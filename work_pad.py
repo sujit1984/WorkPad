@@ -1,9 +1,13 @@
 import tkinter as tk
 import json
 import os
+import datetime
 
 DATA_FILE = "task_goals_data.json"
 
+# Utility function to get current date
+def get_current_date():
+    return datetime.datetime.now().strftime("%A, %B %d, %Y")
 
 # ---------------------------
 # 1. SubGoalSection (unchanged)
@@ -36,8 +40,6 @@ class SubGoalSection(tk.Frame):
         cb = tk.Checkbutton(frame, variable=var, command=self.save_callback)
         cb.pack(side=tk.LEFT)
         lbl = tk.Label(frame, text=text)
-        # if checked:
-        #     lbl.config(font=("Arial",10,"overstrike"))
         lbl.pack(side=tk.LEFT)
         frame.pack(anchor='w', pady=1)
         self.subgoal_vars.append(var)
@@ -51,9 +53,8 @@ class SubGoalSection(tk.Frame):
             'done': var.get()
         } for var, frame in zip(self.subgoal_vars, self.subgoal_frames)]
 
-
 # ---------------------------
-# 2. Fixed GoalSection with Data Validation
+# 2. GoalSection (unchanged)
 # ---------------------------
 class GoalSection(tk.Frame):
     def __init__(self, master, title, save_callback, data=None, *args, **kwargs):
@@ -65,7 +66,6 @@ class GoalSection(tk.Frame):
         self.goal_frames = []
         self.subgoal_sections = []
 
-        # Initialize with validated data
         self.data = data if data and isinstance(data, list) else []
 
         self.header = tk.Frame(self)
@@ -110,7 +110,6 @@ class GoalSection(tk.Frame):
         cb = tk.Checkbutton(frame, variable=var, command=self.save_callback)
         cb.pack(side=tk.LEFT)
         lbl = tk.Label(frame, text=text, font=("Arial", 10))
-
         lbl.pack(side=tk.LEFT)
         frame.pack(anchor='w', pady=2, fill=tk.X)
         self.goal_vars.append(var)
@@ -133,9 +132,8 @@ class GoalSection(tk.Frame):
             'subgoals': sub_section.get_subgoals()
         } for var, frame, sub_section in zip(self.goal_vars, self.goal_frames, self.subgoal_sections)]
 
-
 # ---------------------------
-# 3. Fixed CollapsibleSection with Data Validation
+# 3. CollapsibleSection (unchanged)
 # ---------------------------
 class CollapsibleSection(tk.Frame):
     def __init__(self, master, title, items=None, save_callback=None, *args, **kwargs):
@@ -207,9 +205,8 @@ class CollapsibleSection(tk.Frame):
             'done': var.get()
         } for var, frame in zip(self.check_vars, self.item_frames)]
 
-
 # ---------------------------
-# 4. Fixed GoalsWindow with Data Structure Validation
+# 4. GoalsWindow with Date Label
 # ---------------------------
 class GoalsWindow(tk.Toplevel):
     def __init__(self, master, data, save_callback, *args, **kwargs):
@@ -217,6 +214,11 @@ class GoalsWindow(tk.Toplevel):
         self.title("Goals")
         self.geometry("500x650")
         self.save_callback = save_callback
+
+        # Date label at the top
+        self.date_label = tk.Label(self, font=("Arial", 12, "bold"))
+        self.date_label.pack(pady=5)
+        self.update_date_label()
 
         # Validate and initialize data structure
         self.data = self.validate_data_structure(data)
@@ -242,8 +244,11 @@ class GoalsWindow(tk.Toplevel):
 
         self.protocol("WM_DELETE_WINDOW", self.on_close)
 
+    def update_date_label(self):
+        self.date_label.config(text=get_current_date())
+        self.after(60000, self.update_date_label)  # Update every 60 seconds
+
     def validate_data_structure(self, data):
-        """Ensure all required keys exist in the data structure"""
         return {
             'goals': data.get('goals', []),
             'monthly': data.get('monthly', []),
@@ -260,19 +265,15 @@ class GoalsWindow(tk.Toplevel):
         }
 
     def save_all(self):
-        """Update main data structure and trigger save"""
         self.master.data['goals'] = self.get_all_data()
         self.save_callback()
 
     def on_close(self):
-        """Handle window close event"""
         self.save_all()
         self.destroy()
 
-
-
 # ---------------------------
-# 5. Fixed MainApp with Data Migration
+# 5. MainApp with Date Label and Duplicate Task Fix
 # ---------------------------
 class MainApp(tk.Tk):
     def __init__(self):
@@ -280,6 +281,11 @@ class MainApp(tk.Tk):
         self.title("WorkPad")
         self.geometry("800x600")
         self.data = self.load_data()
+
+        # Date label at the top
+        self.date_label = tk.Label(self, font=("Arial", 12, "bold"))
+        self.date_label.pack(pady=5)
+        self.update_date_label()
 
         # Create main container
         self.main_frame = tk.Frame(self)
@@ -300,33 +306,21 @@ class MainApp(tk.Tk):
         # Set real save callbacks AFTER initialization
         self.task_manager.save_callback = self.save_data
 
-        # Load initial data
-        self.load_initial_data()
+        # Remove duplicate task loading: do NOT call self.load_initial_data()
 
-    def load_initial_data(self):
-        """Load data without triggering saves"""
-        # Temporary disable save callback
-        original_callback = self.task_manager.save_callback
-        self.task_manager.save_callback = lambda: None
-
-        # Load tasks
-        for task in self.data['tasks']:
-            self.task_manager.add_task(task['text'], task['done'])
-
-        # Restore callback
-        self.task_manager.save_callback = original_callback
+    def update_date_label(self):
+        self.date_label.config(text=get_current_date())
+        self.after(60000, self.update_date_label)  # Update every 60 seconds
 
     def save_data(self):
-        """Save all application data"""
         data = {
             'tasks': self.task_manager.get_tasks(),
-            'goals': self.data.get('goals', [])  # Preserve existing goals data
+            'goals': self.data.get('goals', [])
         }
         with open(DATA_FILE, 'w') as f:
             json.dump(data, f)
 
     def load_data(self):
-        """Load persisted data"""
         if os.path.exists(DATA_FILE):
             with open(DATA_FILE, 'r') as f:
                 return json.load(f)
@@ -344,9 +338,8 @@ class MainApp(tk.Tk):
         self.save_data()
         self.destroy()
 
-
 # ---------------------------
-# 6. Modified TaskManager with Strikethrough and Removal
+# 6. TaskManager (unchanged)
 # ---------------------------
 class TaskManager(tk.Frame):
     def __init__(self, master, tasks, save_callback):
@@ -355,16 +348,13 @@ class TaskManager(tk.Frame):
         self.task_vars = []
         self.task_frames = []
 
-        # Create fonts
         self.normal_font = ("TkDefaultFont", 10)
         self.strike_font = ("TkDefaultFont", 10, "overstrike")
 
-        # Task entry
         self.task_entry = tk.Entry(self)
         self.task_entry.pack(fill=tk.X, pady=5)
         self.task_entry.bind("<Return>", lambda event: self.add_task())
 
-        # Buttons
         self.button_frame = tk.Frame(self)
         self.button_frame.pack(pady=5)
 
@@ -390,11 +380,9 @@ class TaskManager(tk.Frame):
         var = tk.BooleanVar(value=checked)
         frame = tk.Frame(self.tasks_frame)
 
-        # Checkbutton with strikethrough update
         cb = tk.Checkbutton(frame, variable=var, command=lambda: self.update_strikethrough(var, lbl))
         cb.pack(side=tk.LEFT)
 
-        # Label with dynamic font
         lbl = tk.Label(frame, text=text, font=self.normal_font)
         if var.get():
             lbl.config(font=self.strike_font)
@@ -411,7 +399,6 @@ class TaskManager(tk.Frame):
         self.save_callback()
 
     def remove_completed_tasks(self):
-        # Remove tasks in reverse order to avoid index shifting
         for i in reversed(range(len(self.task_vars))):
             if self.task_vars[i].get():
                 self.task_frames[i].destroy()
@@ -425,7 +412,7 @@ class TaskManager(tk.Frame):
             'done': var.get()
         } for var, frame in zip(self.task_vars, self.task_frames)]
 
-
 if __name__ == "__main__":
     app = MainApp()
+    app.protocol("WM_DELETE_WINDOW", app.on_close)
     app.mainloop()
